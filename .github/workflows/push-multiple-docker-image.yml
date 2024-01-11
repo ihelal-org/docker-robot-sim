@@ -1,0 +1,43 @@
+name: Multi Docker Image Push to GHCR
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*" ]
+
+jobs:
+  push:
+    name: Push Docker Images to Registry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      - name: Build and push Docker Images
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | awk -F '/' '{print $2}' | tr '[:upper:]' '[:lower:]')
+
+          for DOCKERFILE in dockerfiles/*; do
+            if [ -f "$DOCKERFILE" ]; then
+              IMAGE_NAME_SUFFIX=$(basename "$DOCKERFILE" | sed 's/Dockerfile.//g' | tr '[:upper:]' '[:lower:]')
+              IMAGE_NAME=ghcr.io/${{ github.repository_owner }}/${REPO_NAME}_${IMAGE_NAME_SUFFIX}
+              
+              # If it's a tag, build and push with the tag
+              if [[ $GITHUB_REF == refs/tags/* ]]; then
+                TAG=${GITHUB_REF#refs/tags/}
+                docker build -f $DOCKERFILE . --tag $IMAGE_NAME:$TAG
+                docker push $IMAGE_NAME:$TAG
+              fi
+              
+              # Push with the 'latest' tag
+              docker build -f $DOCKERFILE . --tag $IMAGE_NAME:latest
+              docker push $IMAGE_NAME:latest
+            fi
+          done

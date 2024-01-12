@@ -1,0 +1,27 @@
+FROM ros:noetic
+
+SHELL ["/bin/bash", "-c"]
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update -y
+
+# add non-root user
+RUN useradd -m robot-sim-user && \
+    echo robot-sim-user ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/robot-sim-user && \
+    chmod 0440 /etc/sudoers.d/robot-sim-user
+
+USER robot-sim-user
+
+ENV SHELL /bin/bash
+
+# init rosdep
+RUN rosdep update
+
+# enter ROS world
+RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc
+
+CMD [ "roscore"]
+
+# export ROS_MASTER_URI=http://ip_address_ROSmaster:11311
+# export ROS_HOSTNAME=ip_address_ROSmaster
